@@ -1,0 +1,109 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+
+module Meanbee
+  require 'csv'
+  require 'pp'
+  require 'bigdecimal'
+  
+  class GoogleCheckoutQif
+    def initialize()
+      @qif = Qif.new
+    end
+    
+    def parse(filename)
+      reader = CSV.open filename, 'r'
+      header = reader.shift
+      
+      reader.each do |row|
+        order_id     = row[0].gsub(/Order /, '')
+        created_date = row[2]
+        currency     = row[3]
+        amount       = row[4]
+        
+        name = row[27]
+        country = row[23]
+        
+        fee_percentage = 0.034
+        
+        if (country != 'United Kingdom')
+          fee_percentage += 0.01
+        end
+        
+        fee = (amount.to_f * fee_percentage) + 0.20
+        
+        fee = BigDecimal.new(fee.to_s).round(2).to_f;
+        
+        @qif.add created_date, "#{name} (#{country}) ##{order_id}", amount
+        @qif.add created_date, "Google Checkout Fee", -fee
+      end
+    end
+    
+    def print
+      @qif.print
+    end
+  end
+  
+  class Qif
+    def initialize()
+      @items = []
+    end
+    
+    def add(date, desc, amount)
+      @items << {
+        :date => date,
+        :desc => desc,
+        :amount => amount
+      }
+    end
+    
+    def print
+      lines = []
+      
+      lines << "!Type:Bank"
+      
+      @items.each do |item|
+        lines << 'D' + item[:date]
+        lines << 'P' + item[:desc]
+        lines << 'M' + item[:desc]
+        lines << 'CC'
+        lines << 'T' + "%.3f" % item[:amount]
+        lines << '^'
+      end
+      
+      lines << "\n" # Empty line
+      
+      lines.join "\n"
+    end
+  end
+end
+
+options = {}
+
+optparse = OptionParser.new do |opts|
+    opts.banner = "Usage: gc2gif.rb --input FILE"
+  
+    opts.on('--input FILE', 'Input CSV file, required.') do |f| 
+        options[:input] = f 
+    end 
+
+    opts.on('-h', '--help', 'Display this screen') do |f| 
+        puts opts
+        exit
+    end 
+end
+
+optparse.parse!
+
+begin
+    raise OptionParser::MissingArgument if options[:input].nil?
+rescue
+    puts 'Error: Missing required options.'
+    puts optparse
+    exit 1
+end
+
+qif = Meanbee::GoogleCheckoutQif.new
+qif.parse options[:input]
+puts qif.print
