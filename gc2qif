@@ -8,8 +8,11 @@ module Meanbee
   require 'bigdecimal'
   
   class GoogleCheckoutQif
-    def initialize()
+    DEFAULT_FEE = 0.034
+
+    def initialize(fee=self::DEFAULT_FEE)
       @qif = Qif.new
+      @fee = fee
     end
     
     def parse(filename)
@@ -25,7 +28,7 @@ module Meanbee
         name = row[27]
         country = row[23]
         
-        fee_percentage = 0.034
+        fee_percentage = @fee
         
         if (country != 'United Kingdom')
           fee_percentage += 0.01
@@ -88,6 +91,10 @@ optparse = OptionParser.new do |opts|
         options[:input] = f 
     end 
 
+    opts.on('--fee PERCENT', 'Feed percentage, optional, default: ' + ("%.2f%" % (Meanbee::GoogleCheckoutQif::DEFAULT_FEE * 100) + '.')) do |f|
+        options[:fee] = f.to_f / 100
+    end
+
     opts.on('-h', '--help', 'Display this screen') do |f| 
         puts opts
         exit
@@ -104,6 +111,8 @@ rescue
     exit 1
 end
 
-qif = Meanbee::GoogleCheckoutQif.new
+qif = Meanbee::GoogleCheckoutQif.new options[:fee]
 qif.parse options[:input]
+
 puts qif.print
+
