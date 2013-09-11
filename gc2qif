@@ -10,9 +10,9 @@ module Meanbee
   class GoogleCheckoutQif
     DEFAULT_FEE = 0.034
 
-    def initialize(fee=self::DEFAULT_FEE)
+    def initialize(fee=nil)
       @qif = Qif.new
-      @fee = fee
+      @fee = fee.nil? ? DEFAULT_FEE : fee
     end
     
     def parse(filename)
